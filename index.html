@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>コミュニティアプリ</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .recording { animation: pulse 1.5s infinite; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans min-h-screen flex flex-col">
+
+    <!-- ヘッダー -->
+    <header class="bg-indigo-900 text-white p-4 flex justify-between items-center shadow-md">
+        <h1 class="text-xl font-bold tracking-wider">コミュニティアプリ</h1>
+        <div class="flex gap-2">
+            <button onclick="showInstructions()" class="bg-indigo-700 hover:bg-indigo-600 px-3 py-1.5 rounded text-sm font-medium transition">使い方</button>
+            <button onclick="handleLogout()" class="bg-red-600 hover:bg-red-500 px-3 py-1.5 rounded text-sm font-medium transition">ログアウト</button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-grow container mx-auto px-4 py-6 max-w-md">
+        
+        <!-- ログイン前画面 -->
+        <div id="auth-section" class="bg-white p-6 rounded-lg shadow-md">
+            <h2 id="auth-title" class="text-xl font-bold text-center text-gray-800 mb-6">ログイン</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
+                    <input type="email" id="auth-email" class="w-full border border-gray-300 p-2.5 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                
+                <!-- パスワード入力 -->
+                <div id="password-group">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+                    <div class="relative w-full">
+                        <input type="password" id="auth-password" class="w-full border border-gray-300 p-2.5 pr-14 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <button type="button" onclick="togglePasswordVisibility()" id="password-toggle-btn" class="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-indigo-600 hover:text-indigo-800 focus:outline-none z-10">
+                            表示
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="nickname-group" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ニックネーム</label>
+                    <input type="text" id="auth-nickname" class="w-full border border-gray-300 p-2.5 rounded focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                </div>
+                
+                <button onclick="submitAuth()" id="auth-submit-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium p-2.5 rounded transition shadow">ログイン</button>
+                
+                <div class="text-center text-sm pt-2">
+                    <button id="auth-toggle-link" onclick="toggleAuthMode()" class="text-indigo-600 hover:underline">新規会員登録はこちら</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ログイン後メイン画面 -->
+        <div id="app-section" class="hidden space-y-6">
+            <div class="bg-white p-4 rounded-lg shadow border-l-4 border-indigo-600">
+                <p class="text-gray-700 font-medium text-lg">こんにちは、<span id="user-display-name" class="font-bold text-indigo-900">ユーザー</span> さん</p>
+            </div>
+
+            <!-- タブ切り替えボタン -->
+            <div class="flex bg-gray-200 p-1 rounded-lg">
+                <button onclick="switchTab('todo')" id="tab-btn-todo" class="flex-1 py-2 text-sm text-center font-medium rounded-md transition bg-white text-gray-800 shadow">マイToDo</button>
+                <button onclick="switchTab('event')" id="tab-btn-event" class="flex-1 py-2 text-sm text-center font-medium rounded-md transition text-gray-600 hover:text-gray-800">掲示板</button>
+                <button onclick="switchTab('settings')" id="tab-btn-settings" class="flex-1 py-2 text-sm text-center font-medium rounded-md transition text-gray-600 hover:text-gray-800">設定</button>
+            </div>
+
+            <!-- タブ1: ToDoリスト -->
+            <div id="tab-todo" class="tab-content active space-y-6">
+                
+                <!-- 音声入力タスク登録フォーム -->
+                <div class="bg-linear-to-br from-indigo-50 to-indigo-100 p-5 rounded-lg shadow border border-indigo-200 space-y-3">
+                    <h3 class="font-bold text-indigo-900 text-sm flex items-center gap-2">
+                        <span>🎙️</span> 声でタスクを登録（自動要約）
+                    </h3>
+                    <p class="text-xs text-indigo-700">「〇〇のタスクを追加して」や、長めの独り言メモをそのまま話しかけてください。AIが自動要約します。</p>
+                    
+                    <div class="flex gap-2 items-center">
+                        <button id="voice-start-btn" onclick="toggleVoiceRecognition()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-4 py-2.5 rounded-md shadow transition flex items-center gap-2 flex-grow justify-center">
+                            <span id="voice-icon">🎤</span> <span id="voice-text">音声入力を開始</span>
+                        </button>
+                    </div>
+                    <div id="voice-preview-box" class="hidden bg-white/80 p-2.5 rounded border border-indigo-200 text-xs text-gray-600 whitespace-pre-wrap min-h-[40px]">
+                        聞き取り中...
+                    </div>
+                </div>
+
+                <!-- テキスト・画像から追加 -->
+                <div class="bg-white p-5 rounded-lg shadow space-y-4">
+                    <h3 class="font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
+                        <span>📝</span> テキスト・画像から追加
+                    </h3>
+                    <!-- 手動入力 -->
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-todo-input" placeholder="新しくタスクを入力..." class="flex-grow text-sm border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="addManualTodo()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-4 py-2 rounded font-medium transition shadow">追加</button>
+                    </div>
+                    
+                    <div class="border-t pt-3">
+                        <label class="block text-xs font-semibold text-gray-500 mb-2">📸 またはスクリーンショットから自動抽出</label>
+                        <input type="file" id="screenshot-file" accept="image/*" class="w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                        <button onclick="uploadScreenshot()" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium p-2 rounded transition shadow">
+                            画像からタスクを自動抽出
+                        </button>
+                    </div>
+                </div>
+
+                <!-- タスク一覧 -->
+                <div class="bg-white p-5 rounded-lg shadow space-y-4">
+                    <h3 class="font-bold text-gray-800 border-b pb-2">現在のタスク一覧</h3>
+                    <ul id="todo-list" class="divide-y divide-gray-100">
+                        <p class="text-gray-400 text-sm py-4 text-center">タスクはありません</p>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- タブ2: イベント掲示板 -->
+            <div id="tab-event" class="tab-content space-y-6">
+                <div id="event-form-section" class="bg-white p-5 rounded-lg shadow space-y-4">
+                    <h3 class="font-bold text-gray-800 border-b pb-2">イベントを投稿する</h3>
+                    <div class="space-y-3">
+                        <input type="text" id="event-title" placeholder="イベント名" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <textarea id="event-desc" placeholder="イベント内容・日時・場所など" rows="3" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                        <input type="url" id="event-link" placeholder="詳細リンク・SNSのURL（任意）" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <button onclick="submitEvent()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium p-2 rounded transition shadow">投稿する</button>
+                    </div>
+                </div>
+                <div class="space-y-4" id="event-container"></div>
+            </div>
+
+            <!-- タブ3: 設定画面 -->
+            <div id="tab-settings" class="tab-content space-y-6">
+                <div class="bg-white p-5 rounded-lg shadow space-y-4">
+                    <h3 class="font-bold text-gray-800 border-b pb-2">🔒 パスワードを変更する</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">新しいパスワード</label>
+                            <input type="password" id="new-password-input" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-600 mb-1">新しいパスワード（確認用）</label>
+                            <input type="password" id="new-password-confirm" class="w-full border border-gray-300 p-2 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                        <button onclick="changePassword()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium p-2 rounded transition shadow">パスワードを更新</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 text-gray-400 text-xs text-center py-3 mt-auto border-t border-gray-700">
+        &copy; 2026 コミュニティアプリ開発チーム
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // ⚠️ ご自身のGASウェブアプリのURLをここに貼り付けてください
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyzW1U8curGYXjL4vPFi_NKo7N8w3srpDTWQIrwz9hoH2hPQDKP5ZXbP3cqtugp6ds3gg/exec";
+
+        let currentUser = null;
+        let authMode = "login"; 
+        let recognition = null;
+        let isRecording = false;
+
+        window.onload = function() {
+            const savedUser = localStorage.getItem("community_user");
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showApp();
+            }
+            initVoiceRecognition();
+        };
+
+        // 音声認識オブジェクトの初期化
+        function initVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn("このブラウザは音声認識に対応していません。");
+                document.getElementById("voice-start-btn").disabled = true;
+                document.getElementById("voice-text").innerText = "音声認識非対応のブラウザです";
+                return;
+            }
+            recognition = new SpeechRecognition();
+            recognition.lang = "ja-JP";
+            recognition.interimResults = true; 
+            recognition.continuous = false;    
+
+            recognition.onstart = function() {
+                isRecording = true;
+                const btn = document.getElementById("voice-start-btn");
+                btn.className = "bg-red-600 hover:bg-red-500 text-white font-medium text-sm px-4 py-2.5 rounded-md shadow transition flex items-center gap-2 flex-grow justify-center recording";
+                document.getElementById("voice-icon").innerText = "🛑";
+                document.getElementById("voice-text").innerText = "話しかけてください（クリックで終了）";
+                const preview = document.getElementById("voice-preview-box");
+                preview.classList.remove("hidden");
+                preview.innerText = "音声を聞き取り中...";
+            };
+
+            recognition.onresult = function(event) {
+                let currentText = "";
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    currentText += event.results[i][0].transcript;
+                }
+                document.getElementById("voice-preview-box").innerText = currentText;
+            };
+
+            recognition.onerror = function(event) {
+                console.error("音声認識エラー:", event.error);
+                stopVoiceUI();
+            };
+
+            recognition.onend = function() {
+                const finalLiveText = document.getElementById("voice-preview-box").innerText;
+                stopVoiceUI();
+                if (finalLiveText && finalLiveText !== "音声を聞き取り中..." && finalLiveText.trim().length > 0) {
+                    sendVoiceTextToAI(finalLiveText.trim());
+                }
+            };
+        }
+
+        function toggleVoiceRecognition() {
+            if (!recognition) return;
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function stopVoiceUI() {
+            isRecording = false;
+            const btn = document.getElementById("voice-start-btn");
+            btn.className = "bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm px-4 py-2.5 rounded-md shadow transition flex items-center gap-2 flex-grow justify-center";
+            document.getElementById("voice-icon").innerText = "🎤";
+            document.getElementById("voice-text").innerText = "音声入力を開始";
+        }
+
+        // GAS経由でGeminiにテキストを送信して自動解析・登録
+        async function sendVoiceTextToAI(text) {
+            const preview = document.getElementById("voice-preview-box");
+            preview.innerText = "⏳ AIがタスクを要約・登録中...\n「" + text + "」";
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "parseVoiceTask", email: currentUser.email, text: text })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert(`🎉 音声登録が完了しました！\n\n【タスク名】: ${data.title}\n【詳細情報】: ${data.description || 'なし'}`);
+                    preview.classList.add("hidden");
+                    loadTodos();
+                } else {
+                    alert("❌ 要約登録に失敗しました: " + data.message);
+                    preview.classList.add("hidden");
+                }
+            } catch (e) {
+                alert("通信エラーが発生しました。");
+                preview.classList.add("hidden");
+            }
+        }
+
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById("auth-password");
+            const toggleBtn = document.getElementById("password-toggle-btn");
+            if (passwordInput.type === "password") {
+                passwordInput.type = "text";
+                toggleBtn.innerText = "非表示";
+            } else {
+                passwordInput.type = "password";
+                toggleBtn.innerText = "表示";
+            }
+        }
+
+        function toggleAuthMode() {
+            authMode = authMode === "login" ? "register" : "login";
+            document.getElementById("auth-title").innerText = authMode === "login" ? "ログイン" : "新規会員登録";
+            document.getElementById("auth-submit-btn").innerText = authMode === "login" ? "ログイン" : "登録して仮パスワードを発行";
+            document.getElementById("auth-toggle-link").innerText = authMode === "login" ? "新規会員登録はこちら" : "既にアカウントをお持ちの方はこちら";
+            document.getElementById("auth-password").type = "password";
+            document.getElementById("password-toggle-btn").innerText = "表示";
+
+            if (authMode === "register") {
+                document.getElementById("nickname-group").classList.remove("hidden");
+                document.getElementById("password-group").classList.add("hidden");
+            } else {
+                document.getElementById("nickname-group").classList.add("hidden");
+                document.getElementById("password-group").classList.remove("hidden");
+            }
+        }
+
+        async function submitAuth() {
+            const email = document.getElementById("auth-email").value.trim();
+            const password = document.getElementById("auth-password").value;
+            const nickname = document.getElementById("auth-nickname").value.trim();
+
+            if (!email) return alert("メールアドレスを入力してください");
+
+            const payload = { action: authMode, email: email };
+            if (authMode === "login") payload.password = password;
+            if (authMode === "register") payload.nickname = nickname;
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, { method: "POST", body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (!data.success) return alert(data.message);
+
+                if (authMode === "register") {
+                    alert(data.message);
+                    toggleAuthMode();
+                } else {
+                    currentUser = data.user;
+                    localStorage.setItem("community_user", JSON.stringify(currentUser));
+                    showApp();
+                }
+            } catch (err) { alert("認証通信エラーが発生しました: " + err.toString()); }
+        }
+
+        function showApp() {
+            document.getElementById("auth-section").classList.add("hidden");
+            document.getElementById("app-section").classList.remove("hidden");
+            document.getElementById("user-display-name").innerText = currentUser.nickname;
+            loadTodos();
+            loadEvents();
+        }
+
+        function handleLogout() {
+            localStorage.removeItem("community_user");
+            currentUser = null;
+            document.getElementById("app-section").classList.add("hidden");
+            document.getElementById("auth-section").classList.remove("hidden");
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll(".tab-content").forEach(el => el.classList.remove("active"));
+            document.getElementById("tab-" + tab).classList.add("active");
+
+            const btnTodo = document.getElementById("tab-btn-todo");
+            const btnEvent = document.getElementById("tab-btn-event");
+            const btnSettings = document.getElementById("tab-btn-settings");
+
+            btnTodo.className = "flex-1 py-2 text-center text-sm font-medium rounded-md transition text-gray-600 hover:text-gray-800";
+            btnEvent.className = "flex-1 py-2 text-center text-sm font-medium rounded-md transition text-gray-600 hover:text-gray-800";
+            btnSettings.className = "flex-1 py-2 text-center text-sm font-medium rounded-md transition text-gray-600 hover:text-gray-800";
+
+            if (tab === 'todo') btnTodo.className = "flex-1 py-2 text-center text-sm font-medium rounded-md transition bg-white text-gray-800 shadow";
+            if (tab === 'event') btnEvent.className = "flex-1 py-2 text-center text-sm font-medium rounded-md transition bg-white text-gray-800 shadow";
+            if (tab === 'settings') btnSettings.className = "flex-1 py-2 text-center text-sm font-medium rounded-md transition bg-white text-gray-800 shadow";
+        }
+
+        // 手動タスク追加
+        async function addManualTodo() {
+            const input = document.getElementById("manual-todo-input");
+            const taskText = input.value.trim();
+            if (!taskText) return alert("タスク内容を入力してください。");
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "addManualTodo", email: currentUser.email, task: taskText })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    input.value = "";
+                    loadTodos();
+                } else { alert("追加に失敗しました。"); }
+            } catch (e) { alert("通信エラー"); }
+        }
+
+        // タスクの編集（修正）
+        async function editTodo(id, currentText) {
+            const newText = prompt("タスク内容を修正してください:", currentText);
+            if (newText === null) return;
+            if (!newText.trim()) return alert("空欄には修正できません。");
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "updateTodo", id: id, email: currentUser.email, task: newText.trim() })
+                });
+                const data = await res.json();
+                if (data.success) { loadTodos(); } else { alert(data.message); }
+            } catch (e) { alert("通信エラー"); }
+        }
+
+        // 🔄 タスクの3段階ステータス変更（未完了 ⬜ ➔ 作業中 ⏳ ➔ 完了 ✅）
+        async function toggleTodoStatus(id, currentStatus) {
+            let nextStatus = "open";
+            if (currentStatus === "open") {
+                nextStatus = "inprogress"; // 未完了 ➔ 作業中
+            } else if (currentStatus === "inprogress") {
+                nextStatus = "completed";  // 作業中 ➔ 完了
+            } else {
+                nextStatus = "open";       // 完了 ➔ 未完了
+            }
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "updateTodo", id: id, email: currentUser.email, status: nextStatus })
+                });
+                const data = await res.json();
+                if (data.success) { loadTodos(); }
+            } catch (e) { console.error(e); }
+        }
+
+        // タスクの削除
+        async function deleteTodo(id) {
+            if (!confirm("このタスクを削除してもよろしいですか？")) return;
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "deleteTodo", id: id, email: currentUser.email })
+                });
+                const data = await res.json();
+                if (data.success) { loadTodos(); } else { alert(data.message); }
+            } catch (e) { alert("通信エラー"); }
+        }
+
+        // スクショアップロード＆自動抽出
+        async function uploadScreenshot() {
+            const fileInput = document.getElementById("screenshot-file");
+            if (fileInput.files.length === 0) return alert("画像ファイルを選択してください。");
+
+            const btn = document.querySelector("button[onclick='uploadScreenshot()']");
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = "⏳ 解析中...しばらくお待ちください";
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = async function(e) {
+                const base64Image = e.target.result;
+                try {
+                    const res = await fetch(GAS_WEB_APP_URL, {
+                        method: "POST",
+                        body: JSON.stringify({ action: "uploadScreenshot", email: currentUser.email, image: base64Image })
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        alert("🎉 タスクの自動抽出に成功しました！\n\n【抽出項目】\n" + data.tasks.join("\n"));
+                        fileInput.value = ""; 
+                        loadTodos();
+                    } else {
+                        alert("❌ エラー: " + (data.message || "解析に失敗しました。"));
+                    }
+                } catch (err) { alert("❌ 通信エラーが発生しました。"); } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ToDo読み込み（3段階進捗ステータス表示対応版）
+        async function loadTodos() {
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "getTodos", email: currentUser.email })
+                });
+                const data = await res.json();
+                const listEl = document.getElementById("todo-list");
+                listEl.innerHTML = "";
+
+                if (data.success && data.data.length > 0) {
+                    data.data.forEach(todo => {
+                        const li = document.createElement("li");
+                        li.className = "py-3 flex items-center justify-between gap-2 text-gray-700";
+                        
+                        let checkIcon = "⬜"; // デフォルト: 未完了(open)
+                        let textClass = "text-sm font-medium text-gray-800";
+                        let statusBadge = `<span class="text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200">未完了</span>`;
+
+                        if (todo.status === "inprogress") {
+                            checkIcon = "⏳"; // 作業中
+                            textClass = "text-sm font-medium text-amber-700 italic";
+                            statusBadge = `<span class="text-[10px] font-bold bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200">作業中</span>`;
+                        } else if (todo.status === "completed") {
+                            checkIcon = "✅"; // 完了
+                            textClass = "line-through text-gray-400 text-sm";
+                            statusBadge = `<span class="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200">完了</span>`;
+                        }
+
+                        li.innerHTML = `
+                            <div class="flex items-center gap-3 flex-grow min-w-0">
+                                <button onclick="toggleTodoStatus('${todo.id}', '${todo.status}')" class="text-base focus:outline-none select-none">${checkIcon}</button>
+                                <div class="flex flex-col min-w-0 flex-grow">
+                                    <span onclick="editTodo('${todo.id}', '${todo.task.replace(/'/g, "\\'")}')" class="${textClass} truncate cursor-pointer hover:underline">${todo.task}</span>
+                                    <div class="mt-0.5">${statusBadge}</div>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-1.5 flex-shrink-0">
+                                <button onclick="editTodo('${todo.id}', '${todo.task.replace(/'/g, "\\'")}')" class="text-xs text-indigo-600 hover:bg-indigo-50 px-1.5 py-1 rounded">修正</button>
+                                <button onclick="deleteTodo('${todo.id}')" class="text-xs text-red-500 hover:bg-red-50 px-1.5 py-1 rounded">削除</button>
+                            </div>
+                        `;
+                        listEl.appendChild(li);
+                    });
+                } else {
+                    listEl.innerHTML = `<p class="text-gray-400 text-sm py-4 text-center">登録されているタスクはありません</p>`;
+                }
+            } catch (e) { console.error("ToDo取得エラー", e); }
+        }
+
+        // パスワード変更
+        async function changePassword() {
+            const newPassword = document.getElementById("new-password-input").value;
+            const confirmPassword = document.getElementById("new-password-confirm").value;
+
+            if (!newPassword) return alert("新しいパスワードを入力してください。");
+            if (newPassword !== confirmPassword) return alert("確認用のパスワードが一致しません。");
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "changePassword", email: currentUser.email, newPassword: newPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("🔑 パスワードを変更しました。次回から新しいパスワードでログインしてください。");
+                    document.getElementById("new-password-input").value = "";
+                    document.getElementById("new-password-confirm").value = "";
+                    switchTab('todo');
+                } else { alert(data.message); }
+            } catch (e) { alert("通信エラーが発生しました。"); }
+        }
+
+        // 掲示板ロジック
+        async function submitEvent() {
+            const title = document.getElementById("event-title").value.trim();
+            const desc = document.getElementById("event-desc").value.trim();
+            const link = document.getElementById("event-link").value.trim();
+            if (!title || !desc) return alert("タイトルと内容を入力してください");
+
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "addEvent", title: title, description: desc, sns_link: link, email: currentUser.email })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById("event-title").value = "";
+                    document.getElementById("event-desc").value = "";
+                    document.getElementById("event-link").value = "";
+                    loadEvents();
+                }
+            } catch(e) { alert("投稿エラー"); }
+        }
+
+        async function loadEvents() {
+            try {
+                const res = await fetch(`${GAS_WEB_APP_URL}?action=getEvents`);
+                const data = await res.json();
+                const container = document.getElementById("event-container");
+                container.innerHTML = "";
+
+                if (data.success && data.data.length > 0) {
+                    data.data.reverse().forEach(event => {
+                        const card = document.createElement("div");
+                        card.className = "bg-white p-5 rounded-lg shadow space-y-2 relative";
+                        
+                        let deleteBtn = "";
+                        if (event.email === currentUser.email || currentUser.isAdmin) {
+                            deleteBtn = `<button onclick="deleteEvent('${event.id}')" class="absolute top-4 right-4 text-xs text-red-500 hover:underline">削除</button>`;
+                        }
+
+                        let linkBtn = "";
+                        if (event.sns_link) {
+                            linkBtn = `<a href="${event.sns_link}" target="_blank" class="inline-block mt-2 text-xs text-indigo-600 hover:underline">詳細リンクを開く ➔</a>`;
+                        }
+
+                        card.innerHTML = `
+                            ${deleteBtn}
+                            <h4 class="font-bold text-gray-800 pr-8">${event.title}</h4>
+                            <p class="text-sm text-gray-600 whitespace-pre-wrap">${event.description}</p>
+                            ${linkBtn}
+                            <div class="text-[10px] text-gray-400 pt-2 border-t flex justify-between">
+                                <span>投稿者: ${event.email.split('@')[0]}</span>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+                } else {
+                    container.innerHTML = `<p class="text-gray-400 text-sm py-8 text-center">投稿されたイベントはありません</p>`;
+                }
+            } catch(e) { console.error("イベント取得エラー", e); }
+        }
+
+        async function deleteEvent(id) {
+            if(!confirm("この投稿を削除しますか？")) return;
+            try {
+                const res = await fetch(GAS_WEB_APP_URL, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "deleteEvent", id: id, email: currentUser.email })
+                });
+                const data = await res.json();
+                if(data.success) { loadEvents(); } else { alert(data.message); }
+            } catch(e) { alert("削除通信エラー"); }
+        }
+
+        function showInstructions() {
+            alert("【アプリの使い方】\n\n1. 3段階チェックステータス\nタスクの左アイコンをタップすると『未完了 ⬜ ➔ 作業中 ⏳ ➔ 完了 ✅』に切り替わります。\n\n2. 音声入力自動要約\n『マイク』ボタンを押し、独り言メモを吹き込むと、AIがタスク名と詳細を自動で綺麗に判別してToDoリストに登録してくれます。");
+        }
+    </script>
+</body>
+</html>
